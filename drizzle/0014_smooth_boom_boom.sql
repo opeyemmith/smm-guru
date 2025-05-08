@@ -1,0 +1,2 @@
+ALTER TABLE "services" ADD COLUMN "provider_id" integer;--> statement-breakpoint
+ALTER TABLE "services" ADD CONSTRAINT "services_provider_id_providers_schema_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."providers_schema"("id") ON DELETE cascade ON UPDATE no action;

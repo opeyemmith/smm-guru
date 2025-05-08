@@ -1,0 +1,17 @@
+{
+  "name": "@smm-guru/utils",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "axios": "^1.9.0",
+    "hono": "^4.7.8",
+    "node": "^22.15.0",
+    "typescript": "^5.8.3",
+    "zod": "^3.24.3"
+  }
+}
