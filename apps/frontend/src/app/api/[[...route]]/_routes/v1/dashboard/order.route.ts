@@ -126,6 +126,7 @@ orderRoute.post("/", zValidator("json", orderFormSchema), async (c) => {
       throw new Error("Insufficient balance in wallet.");
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let res: AxiosResponse<any, any>;
 
     try {
