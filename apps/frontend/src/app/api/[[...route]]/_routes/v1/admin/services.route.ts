@@ -43,23 +43,49 @@ serviceRoute.post("/", async (c) => {
     );
   }
 
-  const uncategorizedCategoryId = await db.query.servicesCatSchema.findFirst({
+  let uncategorizedCategoryId = await db.query.servicesCatSchema.findFirst({
     where: eq(servicesCatSchema.name, "Uncategorized"),
     columns: {
       id: true,
     },
   });
 
+  // Auto-create the uncategorized category if it doesn't exist
   if (!uncategorizedCategoryId) {
-    return c.json(
-      {
-        success: false,
-        name: "UNCATEGORIZED_CATEGORY_NOT_FOUND",
-        message: "Default category not found in the database",
-        result: null,
-      },
-      BAD_REQUEST
-    );
+    try {
+      // Insert the new category
+      const result = await db.insert(servicesCatSchema).values({
+        name: "Uncategorized",
+        userId: user?.id,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }).returning({ id: servicesCatSchema.id });
+      
+      if (result && result.length > 0) {
+        uncategorizedCategoryId = { id: result[0].id };
+      } else {
+        return c.json(
+          {
+            success: false,
+            name: "CATEGORY_CREATION_FAILED",
+            message: "Failed to create default category",
+            result: null,
+          },
+          BAD_REQUEST
+        );
+      }
+    } catch (error) {
+      console.error("Error creating default category:", error);
+      return c.json(
+        {
+          success: false,
+          name: "CATEGORY_CREATION_FAILED",
+          message: "Failed to create default category",
+          result: null,
+        },
+        BAD_REQUEST
+      );
+    }
   }
 
   await db.insert(servicesSchema).values({

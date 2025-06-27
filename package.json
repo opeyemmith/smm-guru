@@ -10,5 +10,8 @@
     "build": "pnpm run -r build",
     "test": "pnpm run -r --parallel test",
     "lint": "pnpm run -r --parallel lint"
+  },
+  "dependencies": {
+    "prettier": "^3.6.1"
   }
 }

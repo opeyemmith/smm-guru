@@ -1,14 +1,27 @@
 import React, { ReactNode } from "react";
-import { AdminNavLinks } from "./_components/admin-navlinks";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import AdminSidebar from "./_components/admin-sidebar";
+import AdminHeader from "./_components/admin-header";
 
 const Layout = ({ children }: { children: ReactNode }) => {
   return (
-    <main className="w-full min-h-screen flex flex-col items-start justify-start gap-3 px-6">
-      <header className="w-full py-3 border-b border-border">
-        <h2>Admin Panel</h2>
-        <AdminNavLinks />
-      </header>
-      {children}
+    <main>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "15rem",
+            "--sidebar-width-mobile": "18rem",
+          } as React.CSSProperties
+        }
+      >
+        <AdminSidebar />
+        <div className="w-full">
+          <AdminHeader />
+          <div className="w-full min-h-[calc(100vh-64px)] p-4 md:p-6 space-y-6">
+            {children}
+          </div>
+        </div>
+      </SidebarProvider>
     </main>
   );
 };
