@@ -54,6 +54,16 @@ const sessionValidator = async (c: Context, next: Next) => {
 
   const apiKey = body?.key;
 
+  // Skip API key validation for authentication routes
+  if (path.startsWith("/api/auth") || path.includes("/auth/")) {
+    return next();
+  }
+
+  // Skip API key validation for health checks and public routes (RFC compliant)
+  if (path === "/" || path === "/health" || path === "/ready" || path === "/api/version") {
+    return next();
+  }
+
   if (path.startsWith("/v2/api-key") && !user) {
     throw new ValidationError(
       "Unauthorized access attempt detected.",

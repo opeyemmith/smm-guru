@@ -2,15 +2,30 @@ import { HonoAuthSession } from "@/lib/better-auth/type.auth";
 import { db } from "@/lib/database/db";
 import { wallet } from "@smm-guru/database";
 import { convertCurrency } from "@/lib/fetch/currency.fetch";
-import { BAD_REQUEST, INTERNAL_SERVER_ERROR } from "@smm-guru/utils";
+import { BAD_REQUEST, INTERNAL_SERVER_ERROR, UNAUTHORIZED } from "@smm-guru/utils";
 import { eq } from "@smm-guru/database";
 import { Hono } from "hono";
 
 const walletRoute = new Hono<HonoAuthSession>();
 
 walletRoute.get("/", async (c) => {
-  const user = c.get("user")!;
-  const currency = c.req.query("currency")!;
+  // Check authentication first
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to access your wallet",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
+  const currency = c.req.query("currency") || "USD";
 
   const currencyList = await convertCurrency();
 

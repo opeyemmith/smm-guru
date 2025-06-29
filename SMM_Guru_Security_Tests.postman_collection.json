@@ -1,0 +1,431 @@
+{
+  "info": {
+    "name": "SMM Guru Security Tests",
+    "description": "Comprehensive security testing for SMM Guru application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "frontend_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "backend_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "test_email",
+      "value": "test@example.com"
+    },
+    {
+      "key": "test_password",
+      "value": "TestPassword123!"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-extract session token from cookies",
+          "pm.sendRequest({",
+          "    url: pm.environment.get('frontend_url') + '/api/auth/get-session',",
+          "    method: 'GET'",
+          "}, function (err, response) {",
+          "    if (!err && response.code === 200) {",
+          "        const sessionData = response.json();",
+          "        if (sessionData.user) {",
+          "            pm.environment.set('session_token', 'authenticated');",
+          "        }",
+          "    }",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication Security",
+      "item": [
+        {
+          "name": "1.1 Sign Up Security",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/sign-up/email",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "sign-up", "email"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sign up returns proper status', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 409]);",
+                  "});",
+                  "",
+                  "pm.test('Response has security headers', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.exist;",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('No sensitive data in response', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.not.have.property('password');",
+                  "    pm.expect(response).to.not.have.property('hash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Sign In Security",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/sign-in/email",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sign in successful', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test('Session cookie is HttpOnly', function () {",
+                  "    const cookies = pm.response.headers.get('Set-Cookie');",
+                  "    if (cookies) {",
+                  "        pm.expect(cookies).to.include('HttpOnly');",
+                  "        pm.expect(cookies).to.include('SameSite=Strict');",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Response contains user data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('user');",
+                  "    pm.expect(response.user).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/sign-in/email",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid credentials rejected', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 400]);",
+                  "});",
+                  "",
+                  "pm.test('Error message is generic', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.not.include('password');",
+                  "    pm.expect(response.message).to.not.include('hash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Authorization Security",
+      "item": [
+        {
+          "name": "2.1 Unauthenticated API Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/dashboard/wallet",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "dashboard", "wallet"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unauthenticated request blocked', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403, 302]);",
+                  "});",
+                  "",
+                  "pm.test('No sensitive data leaked', function () {",
+                  "    const response = pm.response.text();",
+                  "    // Check for actual sensitive data, not legitimate user guidance",
+                  "    pm.expect(response).to.not.include('balance');",
+                  "    pm.expect(response).to.not.include('$');",
+                  "    pm.expect(response).to.not.include('amount');",
+                  "    pm.expect(response).to.not.include('currency');",
+                  "    pm.expect(response).to.not.include('USD');",
+                  "    pm.expect(response).to.not.include('transaction');",
+                  "    pm.expect(response).to.not.include('database');",
+                  "    pm.expect(response).to.not.include('internal');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Admin Route Protection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/admin/providers",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "admin", "providers"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin route protected', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});",
+                  "",
+                  "pm.test('Proper error message', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Security Headers",
+      "item": [
+        {
+          "name": "3.1 Security Headers Validation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_url}}/api/auth/session",
+              "host": ["{{backend_url}}"],
+              "path": ["api", "auth", "session"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HSTS header present', function () {",
+                  "    pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('X-Frame-Options header present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.equal('DENY');",
+                  "});",
+                  "",
+                  "pm.test('X-Content-Type-Options header present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.equal('nosniff');",
+                  "});",
+                  "",
+                  "pm.test('Content-Security-Policy header present', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Security-Policy')).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('Server information hidden', function () {",
+                  "    pm.expect(pm.response.headers.get('Server')).to.be.oneOf([null, '', undefined]);",
+                  "    pm.expect(pm.response.headers.get('X-Powered-By')).to.be.oneOf([null, '', undefined]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Input Validation",
+      "item": [
+        {
+          "name": "4.1 SQL Injection Protection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"'; DROP TABLE users; --\",\n  \"description\": \"SQL Injection Test\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/admin/categories",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "admin", "categories"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('SQL injection attempt blocked', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 401, 403]);",
+                  "});",
+                  "",
+                  "pm.test('No database error exposed', function () {",
+                  "    const response = pm.response.text();",
+                  "    pm.expect(response).to.not.include('SQL');",
+                  "    pm.expect(response).to.not.include('database');",
+                  "    pm.expect(response).to.not.include('postgres');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 XSS Protection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"<script>alert('XSS')</script>\",\n  \"description\": \"XSS Test\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/admin/categories",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "admin", "categories"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('XSS attempt handled', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 401, 403]);",
+                  "});",
+                  "",
+                  "pm.test('Script tags not reflected', function () {",
+                  "    const response = pm.response.text();",
+                  "    pm.expect(response).to.not.include('<script>');",
+                  "    pm.expect(response).to.not.include('alert(');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Error Handling",
+      "item": [
+        {
+          "name": "5.1 Information Disclosure Prevention",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/nonexistent-endpoint",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "nonexistent-endpoint"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 error does not expose information', function () {",
+                  "    const response = pm.response.text();",
+                  "    pm.expect(response).to.not.include('stack trace');",
+                  "    pm.expect(response).to.not.include('internal');",
+                  "    pm.expect(response).to.not.include('database');",
+                  "    pm.expect(response).to.not.include('file path');",
+                  "});",
+                  "",
+                  "pm.test('Generic error message', function () {",
+                  "    pm.expect(pm.response.code).to.equal(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

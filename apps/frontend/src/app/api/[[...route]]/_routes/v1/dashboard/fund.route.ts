@@ -5,7 +5,7 @@ import { db } from "@/lib/database/db";
 import { transaction, wallet } from "@smm-guru/database";
 import { PAYTM_MID } from "@/lib/env";
 import { convertCurrency } from "@/lib/fetch/currency.fetch";
-import { BAD_REQUEST, CREATED, INTERNAL_SERVER_ERROR } from "@smm-guru/utils";
+import { BAD_REQUEST, CREATED, INTERNAL_SERVER_ERROR, UNAUTHORIZED } from "@smm-guru/utils";
 import { paytmFormSchema } from "@smm-guru/utils";
 import { zValidator } from "@hono/zod-validator";
 import { eq, sql } from "@smm-guru/database";
@@ -18,7 +18,20 @@ fundRoute.post(
   zValidator("json", paytmFormSchema),
   async (c) => {
     const body = c.req.valid("json");
-    const user = c.get("user")!;
+    const user = c.get("user");
+
+    if (!user) {
+      return c.json(
+        {
+          success: false,
+          error: "Authentication required",
+          name: "UNAUTHORIZED_ACCESS",
+          message: "You must be signed in to add funds",
+          result: null,
+        },
+        UNAUTHORIZED
+      );
+    }
 
     const currencyList = await convertCurrency("INR");
 

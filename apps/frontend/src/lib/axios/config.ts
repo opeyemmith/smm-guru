@@ -2,17 +2,17 @@ import axios from "axios";
 import { API_SERVER_ENDPOINT, CURRENCY_API_KEY } from "../env";
 
 export const axiosV1DashboardInstance = axios.create({
-  baseURL: `/api/v1/dashboard`, // Backend server URL
+  baseURL: `/api/v1/dashboard`, // Frontend API routes (dashboard)
   withCredentials: true, // To send cookies with requests
 });
 
 export const axiosV1AdminInstance = axios.create({
-  baseURL: `/api/v1/admin`, // Backend server URL
+  baseURL: `/api/v1/admin`, // Frontend API routes (admin)
   withCredentials: true, // To send cookies with requests
 });
 
 export const axiosV1BaseInstance = axios.create({
-  baseURL: `/api/v1/`, // Backend server URL
+  baseURL: `/api/v1/`, // Frontend API routes (base)
   withCredentials: true, // To send cookies with requests
 });
 

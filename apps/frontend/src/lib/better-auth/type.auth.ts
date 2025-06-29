@@ -8,6 +8,6 @@ export const HonoUser = auth.$Infer.Session.user;
 export interface HonoAuthSession {
   Variables: {
     user: typeof HonoUser | null;
-    session: typeof HonoUser | null;
+    session: typeof HonoSession | null;
   };
 }

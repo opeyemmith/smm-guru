@@ -9,7 +9,7 @@ import {
 } from "@smm-guru/database";
 import { AES_SECRET_KEY } from "@/lib/env";
 import { convertCurrency } from "@/lib/fetch/currency.fetch";
-import { CREATED, INTERNAL_SERVER_ERROR, OK } from "@smm-guru/utils";
+import { CREATED, INTERNAL_SERVER_ERROR, OK, UNAUTHORIZED } from "@smm-guru/utils";
 import { decrypt } from "@smm-guru/utils";
 import { orderFormSchema } from "@smm-guru/utils";
 import { zValidator } from "@hono/zod-validator";
@@ -21,7 +21,20 @@ const orderRoute = new Hono<HonoAuthSession>();
 
 orderRoute.post("/", zValidator("json", orderFormSchema), async (c) => {
   const body = c.req.valid("json");
-  const user = c.get("user")!;
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to create orders",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
 
   const serviceDetails = await db.query.servicesSchema.findFirst({
     where: and(
@@ -192,8 +205,22 @@ orderRoute.post("/", zValidator("json", orderFormSchema), async (c) => {
 });
 
 orderRoute.get("/", async (c) => {
-  const user = c.get("user")!;
-  const currency = c.req.query("currency")!;
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to view orders",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
+  const currency = c.req.query("currency") || "USD";
 
   const currencyList = await convertCurrency();
 

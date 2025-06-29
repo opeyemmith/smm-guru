@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { addProviderFormSchema } from "@smm-guru/utils";
 import { db } from "@/lib/database/db";
 import { providersSchema } from "@smm-guru/database";
-import { CREATED, OK } from "@smm-guru/utils";
+import { CREATED, OK, UNAUTHORIZED } from "@smm-guru/utils";
 import { HonoAuthSession } from "@/lib/better-auth/type.auth";
 import { decrypt, encrypt } from "@smm-guru/utils";
 import { AES_SECRET_KEY } from "@/lib/env";
@@ -17,7 +17,20 @@ addProviderRoute.post(
   zValidator("json", addProviderFormSchema),
   async (c) => {
     const body = c.req.valid("json");
-    const user = c.get("user")!;
+    const user = c.get("user");
+
+    if (!user) {
+      return c.json(
+        {
+          success: false,
+          error: "Authentication required",
+          name: "UNAUTHORIZED_ACCESS",
+          message: "You must be signed in to add providers",
+          result: null,
+        },
+        UNAUTHORIZED
+      );
+    }
 
     const encryptedApiKey = encrypt(body.apiKey, AES_SECRET_KEY);
 
@@ -47,6 +60,35 @@ addProviderRoute.patch(
   "/:provider-id",
   zValidator("json", addProviderFormSchema),
   async (c) => {
+    // CRITICAL: Check authentication and admin role
+    const user = c.get("user");
+
+    if (!user) {
+      return c.json(
+        {
+          success: false,
+          error: "Authentication required",
+          name: "UNAUTHORIZED_ACCESS",
+          message: "You must be signed in to update providers",
+          result: null,
+        },
+        UNAUTHORIZED
+      );
+    }
+
+    if (user.role !== "admin") {
+      return c.json(
+        {
+          success: false,
+          error: "Admin access required",
+          name: "FORBIDDEN_ACCESS",
+          message: "You must have admin privileges to update providers",
+          result: null,
+        },
+        UNAUTHORIZED
+      );
+    }
+
     const body = c.req.valid("json");
     const providerId = Number(c.req.param("provider-id"));
 
@@ -75,6 +117,35 @@ addProviderRoute.patch(
 );
 
 addProviderRoute.get("/", async (c) => {
+  // CRITICAL: Check authentication and admin role
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to access admin resources",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
+  if (user.role !== "admin") {
+    return c.json(
+      {
+        success: false,
+        error: "Admin access required",
+        name: "FORBIDDEN_ACCESS",
+        message: "You must have admin privileges to access provider data",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
   const providers = await db.query.providersSchema.findMany({
     columns: {
       id: true,
@@ -96,6 +167,35 @@ addProviderRoute.get("/", async (c) => {
 });
 
 addProviderRoute.get("/key/:provider-id", async (c) => {
+  // CRITICAL: Check authentication and admin role
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to access admin resources",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
+  if (user.role !== "admin") {
+    return c.json(
+      {
+        success: false,
+        error: "Admin access required",
+        name: "FORBIDDEN_ACCESS",
+        message: "You must have admin privileges to access provider keys",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
   const providerId = Number(c.req.param("provider-id"));
 
   const provider = await db.query.providersSchema.findFirst({
@@ -160,6 +260,35 @@ addProviderRoute.delete("/:provider-id", async (c) => {
 });
 
 addProviderRoute.get("/services/:provider-id", async (c) => {
+  // CRITICAL: Check authentication and admin role
+  const user = c.get("user");
+
+  if (!user) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication required",
+        name: "UNAUTHORIZED_ACCESS",
+        message: "You must be signed in to access admin resources",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
+  if (user.role !== "admin") {
+    return c.json(
+      {
+        success: false,
+        error: "Admin access required",
+        name: "FORBIDDEN_ACCESS",
+        message: "You must have admin privileges to access provider services",
+        result: null,
+      },
+      UNAUTHORIZED
+    );
+  }
+
   const providerId = Number(c.req.param("provider-id"));
 
   const provider = await db.query.providersSchema.findFirst({

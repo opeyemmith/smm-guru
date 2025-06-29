@@ -3,7 +3,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { signOut, useSession } from "@/lib/better-auth/auth-client";
+import { signOut } from "@/lib/better-auth/auth-client";
+import { useSessionContext } from "@/context/session-provider";
 import {
   CircleUser,
   LogOut,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 
 import {
   DropdownMenu,
@@ -28,50 +30,56 @@ import Link from "next/link";
 const SidebarProfile = () => {
   const route = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const { data, isPending } = useSession();
+  const isMounted = useMounted();
+  const { data, isPending } = useSessionContext();
 
-  return (
-    <>
-      {!isPending && data && (
-        <div className="flex items-center gap-3">
-          <ProfileDropdown data={data} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
-              {data?.user.name}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {data?.user.email}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={isSigningOut}
-            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    route.push("/");
-                  },
-                  onRequest: () => {
-                    setIsSigningOut(true);
-                  },
-                  onResponse: () => {
-                    setIsSigningOut(false);
-                  },
-                },
-              });
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+  // Show skeleton during SSR, initial mount, or when session is loading
+  if (!isMounted || isPending) {
+    return <ProfileSkeleton />;
+  }
+
+  // Show profile content when session is available
+  if (data?.user) {
+    return (
+      <div className="flex items-center gap-3">
+        <ProfileDropdown data={data} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground truncate">
+            {data.user.name}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {data.user.email}
+          </p>
         </div>
-      )}
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={isSigningOut}
+          className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          onClick={() => {
+            signOut({
+              fetchOptions: {
+                onSuccess: () => {
+                  route.push("/");
+                },
+                onRequest: () => {
+                  setIsSigningOut(true);
+                },
+                onResponse: () => {
+                  setIsSigningOut(false);
+                },
+              },
+            });
+          }}
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
 
-      {isPending && !data && <ProfileSkeleton />}
-    </>
-  );
+  // Fallback to skeleton if no user data
+  return <ProfileSkeleton />;
 };
 
 export const ProfileSkeleton = () => {

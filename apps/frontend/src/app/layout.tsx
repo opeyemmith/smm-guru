@@ -6,6 +6,7 @@ import { ReactNode } from "react";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import Provider from "@/context/provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ExtensionConflictHandler } from "@/components/utils/extension-conflict-handler";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
+          <ExtensionConflictHandler />
           <Provider>{children}</Provider>
           <Toaster closeButton={true} position="top-right" />
         </ThemeProvider>

@@ -1,0 +1,768 @@
+{
+  "info": {
+    "name": "SMM Guru Advanced Security Tests",
+    "description": "Advanced security testing including rate limiting, API keys, and vulnerability tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "frontend_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "backend_url",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Rate Limiting Tests",
+      "item": [
+        {
+          "name": "Authentication Rate Limiting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/sign-in/email",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Track attempt count for rate limiting",
+                  "const attemptCount = pm.globals.get('auth_attempt_count') || 0;",
+                  "pm.globals.set('auth_attempt_count', attemptCount + 1);",
+                  "console.log('Authentication attempt:', attemptCount + 1);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const attemptCount = pm.globals.get('auth_attempt_count');",
+                  "",
+                  "if (attemptCount > 5) {",
+                  "    pm.test('Rate limiting triggered after 5 attempts', function () {",
+                  "        pm.expect(pm.response.code).to.equal(429);",
+                  "    });",
+                  "    ",
+                  "    pm.test('Rate limit headers present', function () {",
+                  "        pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.exist;",
+                  "        pm.expect(pm.response.headers.get('Retry-After')).to.exist;",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Request within rate limit', function () {",
+                  "        pm.expect(pm.response.code).to.not.equal(429);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Rate Limiting",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_url}}/api/version",
+              "host": ["{{backend_url}}"],
+              "path": ["api", "version"]
+            },
+            "description": "Tests rate limiting on the API version endpoint. This demonstrates that rate limiting is working on legitimate business endpoints (100 requests per 15 minutes)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Track API request count",
+                  "const apiCount = pm.globals.get('api_request_count') || 0;",
+                  "pm.globals.set('api_request_count', apiCount + 1);",
+                  "console.log('API request:', apiCount + 1);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const apiCount = pm.globals.get('api_request_count');",
+                  "",
+                  "if (apiCount > 100) {",
+                  "    pm.test('General API rate limiting active', function () {",
+                  "        pm.expect(pm.response.code).to.equal(429);",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Request within general rate limit', function () {",
+                  "        pm.expect(pm.response.code).to.not.equal(429);",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test('Response time is reasonable', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "API Key Security",
+      "item": [
+        {
+          "name": "Backend API Without Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test\": \"data\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_url}}/v2/handler",
+              "host": ["{{backend_url}}"],
+              "path": ["v2", "handler"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API key required', function () {",
+                  "    pm.expect(pm.response.code).to.equal(401);",
+                  "});",
+                  "",
+                  "pm.test('Proper error response', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"invalid-api-key\",\n  \"test\": \"data\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_url}}/v2/handler",
+              "host": ["{{backend_url}}"],
+              "path": ["v2", "handler"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid API key rejected', function () {",
+                  "    pm.expect(pm.response.code).to.equal(401);",
+                  "});",
+                  "",
+                  "pm.test('No information disclosure', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.not.include('database');",
+                  "    pm.expect(response.message).to.not.include('internal');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CORS Security",
+      "item": [
+        {
+          "name": "CORS Configuration Test",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://malicious-site.com"
+              },
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              }
+            ],
+            "url": {
+              "raw": "{{backend_url}}/api/auth/session",
+              "host": ["{{backend_url}}"],
+              "path": ["api", "auth", "session"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CORS properly configured', function () {",
+                  "    const allowedOrigin = pm.response.headers.get('Access-Control-Allow-Origin');",
+                  "    pm.expect(allowedOrigin).to.not.equal('https://malicious-site.com');",
+                  "    pm.expect(allowedOrigin).to.not.equal('*');",
+                  "});",
+                  "",
+                  "pm.test('CORS credentials properly controlled', function () {",
+                  "    const allowCredentials = pm.response.headers.get('Access-Control-Allow-Credentials');",
+                  "    if (allowCredentials) {",
+                  "        pm.expect(allowCredentials).to.equal('true');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vulnerability Tests",
+      "item": [
+        {
+          "name": "Large Payload Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{large_payload_json}}"
+            },
+            "url": {
+              "raw": "{{backend_url}}/v2/handler",
+              "host": ["{{backend_url}}"],
+              "path": ["v2", "handler"]
+            },
+            "description": "Tests enterprise-standard payload size validation using Hono's bodyLimit middleware. Validates that payload validation occurs before authentication, preventing DoS attacks and information disclosure."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a large payload that exceeds 50KB (51,200 bytes)",
+                  "// Target: ~60KB to ensure we exceed the limit with margin",
+                  "const targetSize = 60 * 1024; // 60KB",
+                  "",
+                  "// Create base JSON structure",
+                  "const basePayload = {",
+                  "    \"name\": \"\",",
+                  "    \"description\": \"Large payload test to validate bodyLimit middleware - this payload exceeds 50KB limit\",",
+                  "    \"category\": \"security-test\",",
+                  "    \"metadata\": {",
+                  "        \"test_type\": \"payload_size_validation\",",
+                  "        \"expected_status\": 413,",
+                  "        \"security_check\": \"middleware_order_validation\"",
+                  "    },",
+                  "    \"large_data\": \"\"",
+                  "};",
+                  "",
+                  "// Calculate how much data we need to add",
+                  "const baseSize = JSON.stringify(basePayload).length;",
+                  "const remainingSize = targetSize - baseSize;",
+                  "",
+                  "// Generate large string data",
+                  "const largeString = 'A'.repeat(Math.max(remainingSize, 55000));",
+                  "",
+                  "// Set the large data",
+                  "basePayload.large_data = largeString;",
+                  "",
+                  "// Convert to JSON string",
+                  "const largePayloadJson = JSON.stringify(basePayload);",
+                  "",
+                  "// Log payload size for verification",
+                  "console.log('🔍 Generated payload size:', largePayloadJson.length, 'bytes');",
+                  "console.log('🎯 Target was:', targetSize, 'bytes');",
+                  "console.log('📊 Exceeds 50KB limit:', largePayloadJson.length > 51200 ? '✅ YES' : '❌ NO');",
+                  "",
+                  "// Set as environment variable for the request",
+                  "pm.environment.set('large_payload_json', largePayloadJson);",
+                  "",
+                  "// Also set payload size for test validation",
+                  "pm.environment.set('payload_size_bytes', largePayloadJson.length);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Verify payload size was actually large",
+                  "const payloadSize = parseInt(pm.environment.get('payload_size_bytes'));",
+                  "console.log('📏 Actual payload size sent:', payloadSize, 'bytes');",
+                  "console.log('🎯 50KB limit is:', 51200, 'bytes');",
+                  "",
+                  "pm.test('Payload size verification: Exceeds 50KB limit', function () {",
+                  "    pm.expect(payloadSize).to.be.greaterThan(51200, 'Generated payload must exceed 50KB limit');",
+                  "});",
+                  "",
+                  "pm.test('Enterprise payload validation: Correct HTTP status', function () {",
+                  "    // Must return 413 Payload Too Large (RFC 7231 standard)",
+                  "    // NOT 401 Unauthorized - this would indicate security vulnerability",
+                  "    pm.expect(pm.response.code).to.equal(413, 'Should return 413 Payload Too Large');",
+                  "});",
+                  "",
+                  "pm.test('Security: Payload validation before authentication', function () {",
+                  "    // CRITICAL: Validates middleware order prevents DoS and info disclosure",
+                  "    pm.expect(pm.response.code).to.not.equal(401, 'Payload validation must occur before authentication');",
+                  "});",
+                  "",
+                  "pm.test('Enterprise error response format', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('success', false);",
+                  "    pm.expect(response).to.have.property('error', 'Payload Too Large');",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('maxSize', '50KB');",
+                  "    pm.expect(response).to.have.property('details');",
+                  "});",
+                  "",
+                  "pm.test('No sensitive information disclosure', function () {",
+                  "    const response = pm.response.json();",
+                  "    const responseText = JSON.stringify(response);",
+                  "    // Ensure no internal system details are exposed",
+                  "    pm.expect(responseText).to.not.include('stack');",
+                  "    pm.expect(responseText).to.not.include('internal');",
+                  "    pm.expect(responseText).to.not.include('debug');",
+                  "});",
+                  "",
+                  "// Clean up environment variables",
+                  "pm.test('Cleanup: Remove temporary variables', function () {",
+                  "    pm.environment.unset('large_payload_json');",
+                  "    pm.environment.unset('payload_size_bytes');",
+                  "    pm.test.skip(); // This test always passes, just for cleanup",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed JSON Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"test\", \"invalid\": json, \"missing\": quote}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/admin/categories",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "admin", "categories"]
+            },
+            "description": "Tests JSON validation middleware order. Validates that malformed JSON is rejected with HTTP 400 before authentication middleware executes, preventing information disclosure about protected endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('🧪 Testing Malformed JSON Security');",
+                  "console.log('📡 Response Status:', pm.response.code);",
+                  "console.log('📄 Response Body:', pm.response.text());",
+                  "",
+                  "pm.test('Enterprise JSON validation: Correct HTTP status', function () {",
+                  "    // Must return 400 Bad Request (RFC 7231 standard)",
+                  "    // NOT 401 Unauthorized - this would indicate security vulnerability",
+                  "    pm.expect(pm.response.code).to.equal(400, 'Should return 400 Bad Request for malformed JSON');",
+                  "});",
+                  "",
+                  "pm.test('Security: JSON validation before authentication', function () {",
+                  "    // CRITICAL: Validates middleware order prevents info disclosure",
+                  "    pm.expect(pm.response.code).to.not.equal(401, 'JSON validation must occur before authentication');",
+                  "});",
+                  "",
+                  "pm.test('Enterprise error response format', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('success', false);",
+                  "    pm.expect(response).to.have.property('error', 'Invalid JSON');",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('details');",
+                  "});",
+                  "",
+                  "pm.test('No internal error details exposed', function () {",
+                  "    const response = pm.response.text();",
+                  "    // Ensure no internal system details are exposed",
+                  "    pm.expect(response).to.not.include('SyntaxError');",
+                  "    pm.expect(response).to.not.include('JSON.parse');",
+                  "    pm.expect(response).to.not.include('stack');",
+                  "    pm.expect(response).to.not.include('internal');",
+                  "});",
+                  "",
+                  "pm.test('No authentication information disclosure', function () {",
+                  "    const response = pm.response.text();",
+                  "    // Ensure no authentication-related information is leaked",
+                  "    pm.expect(response).to.not.include('Authentication required');",
+                  "    pm.expect(response).to.not.include('session');",
+                  "    pm.expect(response).to.not.include('token');",
+                  "    pm.expect(response).to.not.include('unauthorized');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Path Traversal Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{frontend_url}}/api/v1/../../etc/passwd",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "v1", "..", "..", "etc", "passwd"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Path traversal attempt blocked', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 403, 404]);",
+                  "});",
+                  "",
+                  "pm.test('No system files exposed', function () {",
+                  "    const response = pm.response.text();",
+                  "    pm.expect(response).to.not.include('root:');",
+                  "    pm.expect(response).to.not.include('/bin/bash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Session Security",
+      "item": [
+        {
+          "name": "Authentication Setup (Sign In)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/sign-in/email",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "sign-in", "email"]
+            },
+            "description": "Authenticates a user to establish session state for subsequent session security tests. This test should run before session validation tests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('🔐 Setting up authentication for session tests...');",
+                  "console.log('📡 Response Status:', pm.response.code);",
+                  "",
+                  "pm.test('Authentication setup successful', function () {",
+                  "    // Accept both 200 (success) and 400/401 (user doesn't exist or wrong password)",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 401, 422]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Sign in successful - session established', function () {",
+                  "        const response = pm.response.json();",
+                  "        pm.expect(response).to.have.property('user');",
+                  "        pm.expect(response.user).to.have.property('email');",
+                  "        console.log('✅ User authenticated successfully');",
+                  "        pm.environment.set('session_established', 'true');",
+                  "    });",
+                  "    ",
+                  "    pm.test('Session cookies set securely', function () {",
+                  "        const cookies = pm.response.headers.get('Set-Cookie');",
+                  "        if (cookies) {",
+                  "            pm.expect(cookies).to.include('HttpOnly');",
+                  "            pm.expect(cookies).to.include('SameSite');",
+                  "            console.log('✅ Secure session cookies established');",
+                  "        }",
+                  "    });",
+                  "} else {",
+                  "    console.log('ℹ️ Authentication failed - will test unauthenticated session state');",
+                  "    pm.environment.set('session_established', 'false');",
+                  "    ",
+                  "    pm.test('Authentication failure handled properly', function () {",
+                  "        const response = pm.response.json();",
+                  "        // Should have proper error structure",
+                  "        pm.expect(response).to.have.property('message');",
+                  "        // Should not expose sensitive information",
+                  "        const responseText = JSON.stringify(response);",
+                  "        pm.expect(responseText).to.not.include('password');",
+                  "        pm.expect(responseText).to.not.include('hash');",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test('Security headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.exist;",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Session Validation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/get-session",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "get-session"]
+            },
+            "description": "Tests session endpoint security and validates proper session handling for both authenticated and unauthenticated states."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Optional: Attempt to authenticate first (for comprehensive testing)",
+                  "// This will try to sign in, but the test should handle both auth states",
+                  "console.log('🔐 Testing session validation...');",
+                  "console.log('📝 Note: This test validates both authenticated and unauthenticated states');",
+                  "",
+                  "// Try to authenticate (optional - test should work regardless)",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get('frontend_url') + '/api/auth/sign-in/email',",
+                  "    method: 'POST',",
+                  "    header: {",
+                  "        'Content-Type': 'application/json'",
+                  "    },",
+                  "    body: {",
+                  "        mode: 'raw',",
+                  "        raw: JSON.stringify({",
+                  "            email: pm.environment.get('test_email') || 'test@example.com',",
+                  "            password: pm.environment.get('test_password') || 'TestPassword123!'",
+                  "        })",
+                  "    }",
+                  "}, function (err, response) {",
+                  "    if (!err && response.code === 200) {",
+                  "        console.log('✅ Authentication successful for session test');",
+                  "        pm.environment.set('auth_attempted', 'true');",
+                  "    } else {",
+                  "        console.log('ℹ️ Authentication not successful - testing unauthenticated session');",
+                  "        pm.environment.set('auth_attempted', 'false');",
+                  "    }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('🧪 Testing Session Validation Security');",
+                  "console.log('📡 Response Status:', pm.response.code);",
+                  "console.log('📄 Response Body:', pm.response.text());",
+                  "",
+                  "pm.test('Session endpoint responds correctly', function () {",
+                  "    // Session endpoint should always respond with 200",
+                  "    pm.expect(pm.response.code).to.equal(200, 'Session endpoint should return 200');",
+                  "});",
+                  "",
+                  "pm.test('Session response format is valid', function () {",
+                  "    const response = pm.response.json();",
+                  "    // Response should be either null (unauthenticated) or object with user (authenticated)",
+                  "    const isValidFormat = response === null || (typeof response === 'object' && response !== null && response.hasOwnProperty('user'));",
+                  "    pm.expect(isValidFormat).to.be.true;",
+                  "    console.log('✅ Session response format validated:', response === null ? 'null (unauthenticated)' : 'object with user (authenticated)');",
+                  "});",
+                  "",
+                  "// Test authenticated session structure (if user is authenticated)",
+                  "const response = pm.response.json();",
+                  "if (response && response.user) {",
+                  "    pm.test('Authenticated session has valid structure', function () {",
+                  "        pm.expect(response).to.have.property('user');",
+                  "        pm.expect(response.user).to.have.property('id');",
+                  "        pm.expect(response.user).to.have.property('email');",
+                  "        console.log('✅ Authenticated session structure validated');",
+                  "    });",
+                  "    ",
+                  "    pm.test('No sensitive data in session response', function () {",
+                  "        const responseText = JSON.stringify(response);",
+                  "        pm.expect(responseText).to.not.include('password');",
+                  "        pm.expect(responseText).to.not.include('hash');",
+                  "        pm.expect(responseText).to.not.include('secret');",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Unauthenticated session returns null', function () {",
+                  "        pm.expect(response).to.be.null;",
+                  "        console.log('✅ Unauthenticated session correctly returns null');",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test('Security headers present', function () {",
+                  "    // Check for security headers",
+                  "    const headers = pm.response.headers;",
+                  "    pm.expect(headers.get('X-Frame-Options')).to.exist;",
+                  "    pm.expect(headers.get('X-Content-Type-Options')).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('Session cookie security (if present)', function () {",
+                  "    const cookies = pm.response.headers.get('Set-Cookie');",
+                  "    if (cookies) {",
+                  "        pm.expect(cookies).to.include('HttpOnly');",
+                  "        pm.expect(cookies).to.include('SameSite');",
+                  "        console.log('✅ Session cookies have security attributes');",
+                  "    } else {",
+                  "        console.log('ℹ️ No session cookies set (expected for unauthenticated state)');",
+                  "        pm.test.skip(); // Skip this test if no cookies",
+                  "    }",
+                  "});",
+                  "",
+                  "// Clean up environment variables",
+                  "pm.environment.unset('auth_attempted');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Session Hijacking Protection",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "better-auth.session_token=fake-session-token-12345; Path=/; HttpOnly; SameSite=Strict"
+              }
+            ],
+            "url": {
+              "raw": "{{frontend_url}}/api/auth/get-session",
+              "host": ["{{frontend_url}}"],
+              "path": ["api", "auth", "get-session"]
+            },
+            "description": "Tests session hijacking protection by attempting to use a fake session token. Validates that the system properly rejects invalid session tokens and doesn't leak user data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('🛡️ Testing Session Hijacking Protection');",
+                  "console.log('📡 Response Status:', pm.response.code);",
+                  "console.log('📄 Response Body:', pm.response.text());",
+                  "",
+                  "pm.test('Session endpoint responds to fake token', function () {",
+                  "    // Should respond with 200 but null session data",
+                  "    pm.expect(pm.response.code).to.equal(200, 'Session endpoint should return 200 even for invalid tokens');",
+                  "});",
+                  "",
+                  "pm.test('Fake session token rejected properly', function () {",
+                  "    const response = pm.response.json();",
+                  "    // Should return null for invalid session token",
+                  "    pm.expect(response).to.be.null;",
+                  "    console.log('✅ Fake session token properly rejected');",
+                  "});",
+                  "",
+                  "pm.test('No user data leaked with fake token', function () {",
+                  "    const response = pm.response.json();",
+                  "    // Ensure no user data is returned",
+                  "    pm.expect(response).to.be.null;",
+                  "    ",
+                  "    // Ensure response doesn't contain any user-related data",
+                  "    const responseText = pm.response.text();",
+                  "    pm.expect(responseText).to.not.include('email');",
+                  "    pm.expect(responseText).to.not.include('user');",
+                  "    pm.expect(responseText).to.not.include('id');",
+                  "    console.log('✅ No user data leaked with fake session token');",
+                  "});",
+                  "",
+                  "pm.test('Security headers present', function () {",
+                  "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.exist;",
+                  "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('No sensitive information in error response', function () {",
+                  "    const responseText = pm.response.text();",
+                  "    // Ensure no internal system details are exposed",
+                  "    pm.expect(responseText).to.not.include('stack');",
+                  "    pm.expect(responseText).to.not.include('internal');",
+                  "    pm.expect(responseText).to.not.include('debug');",
+                  "    pm.expect(responseText).to.not.include('database');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
