@@ -39,20 +39,25 @@ export default function AdminHeader() {
     <header className="sticky top-0 z-30 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center px-4">
         <SidebarTrigger className="block md:hidden mr-2" />
-        
+
         {/* Page Title - Hidden on mobile */}
-        <h1 className="text-lg font-medium hidden md:block">
-          Admin Dashboard
-        </h1>
-        
+        <div className="hidden md:block">
+          <h1 className="text-lg font-semibold text-foreground">
+            Admin Panel
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Manage your SMM platform
+          </p>
+        </div>
+
         {/* Search */}
         <div className="flex-1 flex justify-center px-4 lg:px-6">
           <div className="w-full max-w-lg lg:max-w-xl relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search..."
-              className="w-full bg-background pl-8 md:w-[300px] lg:w-[400px]"
+              placeholder="Search users, orders, services..."
+              className="w-full bg-background pl-8 md:w-[300px] lg:w-[400px] border-border/60 focus:border-primary/60"
             />
           </div>
         </div>

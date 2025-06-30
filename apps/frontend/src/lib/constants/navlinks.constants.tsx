@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Code, List, ShoppingBag, Users, Package2, TagIcon, ExternalLink, Settings } from "lucide-react";
+import { BarChart3, ClipboardList, Code, List, ShoppingBag, Users, Package2, TagIcon, ExternalLink, Settings, TrendingUp } from "lucide-react";
 
 export const navLinks = [
   {
@@ -33,6 +33,21 @@ export const adminNavLinks = [
     title: "Users",
     icon: Users,
     slug: "/admin/users",
+  },
+  {
+    title: "Users Enhanced",
+    icon: Users,
+    slug: "/admin/users-enhanced",
+  },
+  {
+    title: "Orders Enhanced",
+    icon: ShoppingBag,
+    slug: "/admin/orders-enhanced",
+  },
+  {
+    title: "Analytics",
+    icon: TrendingUp,
+    slug: "/admin/analytics",
   },
   {
     title: "Service",

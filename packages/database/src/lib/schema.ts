@@ -1,333 +1,282 @@
-import { relations } from "drizzle-orm";
-import * as t from "drizzle-orm/pg-core";
+/**
+ * Database Schema Definitions
+ * Consolidated schema - single source of truth for the entire monorepo
+ */
 
-const timestamps = {
-  updated_at: t.timestamp(),
-  created_at: t.timestamp().defaultNow().notNull(),
+import { pgTable, text, integer, decimal, boolean, timestamp, uuid, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { relations } from "drizzle-orm";
+
+// Enums
+export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended', 'pending_verification']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'user', 'moderator']);
+export const orderStatusEnum = pgEnum('order_status', [
+  'pending', 
+  'processing', 
+  'in_progress', 
+  'completed', 
+  'partial', 
+  'cancelled', 
+  'refunded', 
+  'failed'
+]);
+export const orderPriorityEnum = pgEnum('order_priority', ['low', 'medium', 'high', 'urgent']);
+export const serviceStatusEnum = pgEnum('service_status', ['active', 'inactive', 'maintenance', 'deprecated']);
+export const serviceCategoryEnum = pgEnum('service_category', [
+  'instagram', 
+  'facebook', 
+  'twitter', 
+  'youtube', 
+  'tiktok', 
+  'linkedin', 
+  'other'
+]);
+export const serviceTypeEnum = pgEnum('service_type', [
+  'followers', 
+  'likes', 
+  'views', 
+  'comments', 
+  'shares', 
+  'subscribers', 
+  'other'
+]);
+export const providerStatusEnum = pgEnum('provider_status', ['active', 'inactive', 'maintenance', 'suspended']);
+export const providerTypeEnum = pgEnum('provider_type', ['api', 'manual', 'hybrid']);
+export const walletStatusEnum = pgEnum('wallet_status', ['active', 'suspended', 'frozen', 'closed']);
+export const transactionTypeEnum = pgEnum('transaction_type', [
+  'deposit', 
+  'withdrawal', 
+  'order', 
+  'refund', 
+  'bonus', 
+  'penalty', 
+  'transfer'
+]);
+export const transactionStatusEnum = pgEnum('transaction_status', [
+  'pending', 
+  'completed', 
+  'failed', 
+  'cancelled', 
+  'processing'
+]);
+
+/**
+ * Users table
+ */
+export const user = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  username: text('username').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  firstName: text('first_name'),
+  lastName: text('last_name'),
+  avatar: text('avatar'),
+  roles: userRoleEnum('roles').array().notNull().default(['user']),
+  status: userStatusEnum('status').notNull().default('pending_verification'),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  phoneNumber: text('phone_number'),
+  phoneVerified: boolean('phone_verified').notNull().default(false),
+  timezone: text('timezone'),
+  language: text('language').notNull().default('en'),
+  lastLoginAt: timestamp('last_login_at'),
+  lastActiveAt: timestamp('last_active_at'),
+  loginAttempts: integer('login_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until'),
+  passwordChangedAt: timestamp('password_changed_at'),
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+  twoFactorSecret: text('two_factor_secret'),
+  apiKeyEnabled: boolean('api_key_enabled').notNull().default(false),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Providers table
+ */
+export const providersSchema = pgTable('providers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  type: providerTypeEnum('type').notNull(),
+  status: providerStatusEnum('status').notNull().default('inactive'),
+  apiUrl: text('api_url').notNull(),
+  apiKey: text('api_key').notNull(),
+  additionalHeaders: jsonb('additional_headers'),
+  timeout: integer('timeout'),
+  retryAttempts: integer('retry_attempts'),
+  balance: decimal('balance', { precision: 10, scale: 2 }),
+  currency: text('currency').notNull().default('USD'),
+  priority: integer('priority').notNull().default(1),
+  rateLimit: jsonb('rate_limit'),
+  features: jsonb('features').notNull().default('{}'),
+  statistics: jsonb('statistics').notNull().default('{}'),
+  healthCheck: jsonb('health_check').notNull().default('{}'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Services table
+ */
+export const servicesSchema = pgTable('services', {
+  id: integer('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: serviceCategoryEnum('category').notNull(),
+  type: serviceTypeEnum('type').notNull(),
+  rate: decimal('rate', { precision: 10, scale: 4 }).notNull(),
+  min: integer('min').notNull(),
+  max: integer('max').notNull(),
+  profit: decimal('profit', { precision: 10, scale: 4 }),
+  status: serviceStatusEnum('status').notNull().default('active'),
+  providerId: uuid('provider_id').notNull(),
+  providerServiceId: text('provider_service_id').notNull(),
+  averageTime: text('average_time'),
+  dripFeed: boolean('drip_feed').notNull().default(false),
+  refill: boolean('refill').notNull().default(false),
+  cancel: boolean('cancel').notNull().default(false),
+  tags: text('tags').array(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Orders table
+ */
+export const orderSchema = pgTable('orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  service: integer('service').notNull(),
+  providerId: integer('provider_id').notNull(),
+  providerOrderId: integer('provider_order_id'),
+  link: text('link').notNull(),
+  quantity: integer('quantity').notNull(),
+  startCount: integer('start_count'),
+  remains: integer('remains'),
+  price: decimal('price', { precision: 10, scale: 4 }).notNull(),
+  status: orderStatusEnum('status').notNull().default('pending'),
+  priority: orderPriorityEnum('priority').notNull().default('medium'),
+  notes: text('notes'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  completedAt: timestamp('completed_at'),
+  failedAt: timestamp('failed_at'),
+  cancelledAt: timestamp('cancelled_at'),
+});
+
+/**
+ * Wallets table
+ */
+export const wallet = pgTable('wallets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().unique(),
+  balance: decimal('balance', { precision: 10, scale: 4 }).notNull().default('0'),
+  currency: text('currency').notNull().default('USD'),
+  status: walletStatusEnum('status').notNull().default('active'),
+  dailySpendLimit: decimal('daily_spend_limit', { precision: 10, scale: 2 }),
+  monthlySpendLimit: decimal('monthly_spend_limit', { precision: 10, scale: 2 }),
+  totalSpentToday: decimal('total_spent_today', { precision: 10, scale: 4 }).notNull().default('0'),
+  totalSpentThisMonth: decimal('total_spent_this_month', { precision: 10, scale: 4 }).notNull().default('0'),
+  lastTransactionAt: timestamp('last_transaction_at'),
+  freezeReason: text('freeze_reason'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Transactions table
+ */
+export const transaction = pgTable('transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  walletId: uuid('wallet_id').notNull(),
+  type: transactionTypeEnum('type').notNull(),
+  amount: decimal('amount', { precision: 10, scale: 4 }).notNull(),
+  currency: text('currency').notNull().default('USD'),
+  status: transactionStatusEnum('status').notNull().default('pending'),
+  description: text('description').notNull(),
+  reference: text('reference'), // External reference (order ID, payment ID, etc.)
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * API Keys table (for backward compatibility)
+ */
+export const apikey = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  permissions: text('permissions').array(),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  isActive: boolean('is_active').notNull().default(true),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Sessions table (for JWT session management)
+ */
+export const session = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  token: text('token').notNull().unique(),
+  refreshToken: text('refresh_token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  refreshExpiresAt: timestamp('refresh_expires_at').notNull(),
+  userAgent: text('user_agent'),
+  ipAddress: text('ip_address'),
+  isActive: boolean('is_active').notNull().default(true),
+  lastActivityAt: timestamp('last_activity_at').notNull().defaultNow(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Export all schemas
+export const schemas = {
+  users: user,
+  services: servicesSchema,
+  providers: providersSchema,
+  orders: orderSchema,
+  wallets: wallet,
+  transactions: transaction,
+  apiKeys: apikey,
+  sessions: session,
 };
 
-export const user = t.pgTable("user", {
-  id: t.text("id").primaryKey(),
-  name: t.text("name").notNull(),
-  email: t.text("email").notNull().unique(),
-  emailVerified: t.boolean("email_verified").notNull(),
-  image: t.text("image"),
-  createdAt: t.timestamp("created_at").notNull(),
-  updatedAt: t.timestamp("updated_at").notNull(),
-  role: t.text("role"),
-  banned: t.boolean("banned"),
-  banReason: t.text("ban_reason"),
-  banExpires: t.timestamp("ban_expires"),
-});
+// Export types
+export type User = typeof user.$inferSelect;
+export type NewUser = typeof user.$inferInsert;
+export type Service = typeof servicesSchema.$inferSelect;
+export type NewService = typeof servicesSchema.$inferInsert;
+export type Provider = typeof providersSchema.$inferSelect;
+export type NewProvider = typeof providersSchema.$inferInsert;
+export type Order = typeof orderSchema.$inferSelect;
+export type NewOrder = typeof orderSchema.$inferInsert;
+export type Wallet = typeof wallet.$inferSelect;
+export type NewWallet = typeof wallet.$inferInsert;
+export type Transaction = typeof transaction.$inferSelect;
+export type NewTransaction = typeof transaction.$inferInsert;
+export type ApiKey = typeof apikey.$inferSelect;
+export type NewApiKey = typeof apikey.$inferInsert;
+export type Session = typeof session.$inferSelect;
+export type NewSession = typeof session.$inferInsert;
 
-export const userRelation = relations(user, ({ many, one }) => ({
-  providers: many(providersSchema),
-  servicesCategories: many(servicesCatSchema),
-  services: many(servicesSchema),
-  orders: many(orderSchema),
-  wallet: one(wallet),
-  transactions: many(transaction),
-}));
-
-export const providersSchema = t.pgTable("providers_schema", {
-  id: t.serial("id").primaryKey(),
-  name: t.text("name").notNull(),
-  apiUrl: t.text("api_url").notNull(),
-  apiKey: t.text("api_key").notNull(),
-  iv: t.text("iv").notNull(),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const providersRelation = relations(
-  providersSchema,
-  ({ one, many }) => ({
-    userId: one(user, {
-      fields: [providersSchema.userId],
-      references: [user.id],
-    }),
-    services: many(servicesSchema),
-  })
-);
-
-export const servicesCatSchema = t.pgTable("services_category", {
-  id: t.serial("id").primaryKey(),
-  name: t.text("name").notNull(),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const servicesCatRelation = relations(
-  servicesCatSchema,
-  ({ many, one }) => ({
-    services: many(servicesSchema),
-    userId: one(user, {
-      fields: [servicesCatSchema.userId],
-      references: [user.id],
-    }),
-  })
-);
-
-export const servicesSchema = t.pgTable("services", {
-  id: t.serial("id").primaryKey(),
-  service: t.text("service").notNull(),
-  name: t.text("name").notNull(),
-  type: t.text("type").notNull(),
-  rate: t.real("rate").notNull(),
-  profit: t.real("profit"),
-  min: t.integer("min").notNull(),
-  max: t.integer("max").notNull(),
-  dripfeed: t.boolean("dripfeed").notNull(),
-  refill: t.boolean("refill").notNull(),
-  cancel: t.boolean("cancel").notNull(),
-  category: t.text("category").notNull(),
-  currency: t.text("currency").default("USD").notNull(),
-  categoryId: t
-    .integer("category_id")
-    .notNull()
-    .references(() => servicesCatSchema.id, { onDelete: "cascade" }),
-  providerId: t
-    .integer("provider_id")
-    .notNull()
-    .references(() => providersSchema.id, { onDelete: "cascade" }),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const servicesRelation = relations(servicesSchema, ({ one, many }) => ({
-  userId: one(user, {
-    fields: [servicesSchema.userId],
-    references: [user.id],
-  }),
-  providerId: one(providersSchema, {
-    fields: [servicesSchema.providerId],
-    references: [providersSchema.id],
-  }),
-  categoryId: one(servicesCatSchema, {
-    fields: [servicesSchema.categoryId],
-    references: [servicesCatSchema.id],
-  }),
-  order: many(orderSchema),
-}));
-
-export const orderSchema = t.pgTable("orders", {
-  id: t.serial("id").primaryKey(),
-  link: t.text("link").notNull(),
-  refill: t.boolean("refill").notNull(),
-  serviceName: t.text("service_name").notNull(),
-  price: t.real("price").notNull(),
-  currency: t.text("currency").default("USD").notNull(),
-  providerOrderId: t.integer("provider_order_id").notNull(),
-  status: t.text("status").default("PENDING").notNull(),
-  service: t
-    .integer("service")
-    .notNull()
-    .references(() => servicesSchema.id, { onDelete: "cascade" }),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const ordersRelation = relations(orderSchema, ({ one }) => ({
-  userId: one(user, {
-    fields: [orderSchema.userId],
-    references: [user.id],
-  }),
-  service: one(servicesSchema, {
-    fields: [orderSchema.service],
-    references: [servicesSchema.id],
-  }),
-}));
-
-// Wallet core schemas
-export const wallet = t.pgTable("wallet", {
-  id: t.serial("id").primaryKey(),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .unique()
-    .references(() => user.id, { onDelete: "cascade" }),
-  balance: t
-    .numeric("balance", { precision: 20, scale: 2 })
-    .default("0")
-    .notNull(),
-  currency: t.text("currency").default("USD").notNull(),
-  status: t
-    .text("status")
-    .$type<"active" | "frozen" | "suspended">()
-    .default("active"),
-  ...timestamps,
-});
-
-export const walletRelations = relations(wallet, ({ one, many }) => ({
-  user: one(user, {
-    fields: [wallet.userId],
-    references: [user.id],
-  }),
-  outgoingTransactions: many(transaction, {
-    relationName: "from_wallet",
-  }),
-  incomingTransactions: many(transaction, {
-    relationName: "to_wallet",
-  }),
-  transactionFee: many(transactionFee),
-}));
-
-export const transaction = t.pgTable("transaction", {
-  id: t.serial("id").primaryKey(),
-  amount: t.numeric("amount", { precision: 20, scale: 2 }).notNull(),
-  type: t
-    .text("type")
-    .$type<"deposit" | "withdrawal" | "transfer" | "fee" | "debit">()
-    .notNull(),
-  status: t
-    .text("status")
-    .$type<"pending" | "completed" | "failed" | "reversed">()
-    .default("pending"),
-  metadata: t.jsonb("metadata").$type<{
-    paytmReference?: string;
-  }>(),
-  reference: t.text("reference").unique(),
-  fromWalletId: t.integer("from_wallet_id").references(() => wallet.id),
-  toWalletId: t.integer("to_wallet_id").references(() => wallet.id),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const transactionRelations = relations(transaction, ({ one }) => ({
-  user: one(user, {
-    fields: [transaction.userId],
-    references: [user.id],
-  }),
-  fromWallet: one(wallet, {
-    fields: [transaction.fromWalletId],
-    references: [wallet.id],
-    relationName: "from_wallet", // Matches wallet's outgoingTransactions
-  }),
-  toWallet: one(wallet, {
-    fields: [transaction.toWalletId],
-    references: [wallet.id],
-    relationName: "to_wallet", // Matches wallet's incomingTransactions
-  }),
-  transactionFee: one(transactionFee),
-}));
-
-// Fee handling schema (for agent commissions etc.)
-export const transactionFee = t.pgTable("transaction_fee", {
-  id: t.text("id").primaryKey(),
-  transactionId: t
-    .integer("transaction_id")
-    .notNull()
-    .references(() => transaction.id, { onDelete: "cascade" }),
-  feeType: t.text("fee_type").notNull(),
-  amount: t.numeric("amount", { precision: 20, scale: 2 }).notNull(),
-  recipientWalletId: t
-    .integer("recipient_wallet_id")
-    .references(() => wallet.id),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  ...timestamps,
-});
-
-export const transactionFeeRelations = relations(transactionFee, ({ one }) => ({
-  user: one(user, {
-    fields: [transactionFee.userId],
-    references: [user.id],
-  }),
-  transaction: one(transaction, {
-    fields: [transactionFee.transactionId], // Fixed field reference
-    references: [transaction.id],
-    relationName: "transaction_fees", // Added matching relation name
-  }),
-  recipientWallet: one(wallet, {
-    fields: [transactionFee.recipientWalletId],
-    references: [wallet.id],
-    relationName: "fee_recipient", // Added unique relation name
-  }),
-}));
-
-export const session = t.pgTable("session", {
-  id: t.text("id").primaryKey(),
-  expiresAt: t.timestamp("expires_at").notNull(),
-  token: t.text("token").notNull().unique(),
-  createdAt: t.timestamp("created_at").notNull(),
-  updatedAt: t.timestamp("updated_at").notNull(),
-  ipAddress: t.text("ip_address"),
-  userAgent: t.text("user_agent"),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  impersonatedBy: t.text("impersonated_by"),
-});
-
-export const account = t.pgTable("account", {
-  id: t.text("id").primaryKey(),
-  accountId: t.text("account_id").notNull(),
-  providerId: t.text("provider_id").notNull(),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  accessToken: t.text("access_token"),
-  refreshToken: t.text("refresh_token"),
-  idToken: t.text("id_token"),
-  accessTokenExpiresAt: t.timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: t.timestamp("refresh_token_expires_at"),
-  scope: t.text("scope"),
-  password: t.text("password"),
-  createdAt: t.timestamp("created_at").notNull(),
-  updatedAt: t.timestamp("updated_at").notNull(),
-});
-
-export const verification = t.pgTable("verification", {
-  id: t.text("id").primaryKey(),
-  identifier: t.text("identifier").notNull(),
-  value: t.text("value").notNull(),
-  expiresAt: t.timestamp("expires_at").notNull(),
-  createdAt: t.timestamp("created_at"),
-  updatedAt: t.timestamp("updated_at"),
-});
-
-export const apikey = t.pgTable("apikey", {
-  id: t.text("id").primaryKey(),
-  name: t.text("name"),
-  start: t.text("start"),
-  prefix: t.text("prefix"),
-  key: t.text("key").notNull(),
-  userId: t
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  refillInterval: t.integer("refill_interval"),
-  refillAmount: t.integer("refill_amount"),
-  lastRefillAt: t.timestamp("last_refill_at"),
-  enabled: t.boolean("enabled"),
-  rateLimitEnabled: t.boolean("rate_limit_enabled"),
-  rateLimitTimeWindow: t.integer("rate_limit_time_window"),
-  rateLimitMax: t.integer("rate_limit_max"),
-  requestCount: t.integer("request_count"),
-  remaining: t.integer("remaining"),
-  lastRequest: t.timestamp("last_request"),
-  expiresAt: t.timestamp("expires_at"),
-  createdAt: t.timestamp("created_at").notNull(),
-  updatedAt: t.timestamp("updated_at").notNull(),
-  permissions: t.text("permissions"),
-  metadata: t.text("metadata"),
-});
+// Type aliases for backward compatibility
+export type TUser = User;
+export type TService = Service;
+export type TProvider = Provider;
+export type TOrder = Order;
+export type TWallet = Wallet;
+export type TTransaction = Transaction;
+export type TApiKey = ApiKey;
+export type TSession = Session;
+export type TCategory = { id: number; name: string; }; // Simplified category type

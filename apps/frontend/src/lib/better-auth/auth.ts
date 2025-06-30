@@ -3,7 +3,7 @@ import { nextCookies } from "better-auth/next-js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, createAuthMiddleware } from "better-auth/plugins";
 import { db } from "../database/db";
-import { allSchemas } from "@smm-guru/database";
+import { schemas, wallet } from "@smm-guru/database/schema";
 import {
   AUTH_DELIVERY_EMAIL,
   GITHUB_CLIENT_ID,
@@ -12,14 +12,12 @@ import {
 } from "../env";
 import ForgotPasswordEmail from "../../../email/forget-password.email";
 import resend from "../resend/config.resend";
-import { eq } from "@smm-guru/database";
+import { eq } from "drizzle-orm";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: "pg", // or "pg" or "mysql"
-    schema: {
-      ...allSchemas,
-    },
+    provider: "pg",
+    schema: schemas,
   }),
   emailAndPassword: {
     enabled: true,
@@ -58,14 +56,14 @@ export const auth = betterAuth({
       if (newSession && user) {
         try {
           const isWalletAvail = await db.query.wallet.findFirst({
-            where: eq(allSchemas.wallet.userId, user.id),
+            where: eq(wallet.userId, user.id),
           });
 
           if (isWalletAvail) {
             return;
           }
 
-          await db.insert(allSchemas.wallet).values({
+          await db.insert(wallet).values({
             userId: user.id,
           });
         } catch (error) {

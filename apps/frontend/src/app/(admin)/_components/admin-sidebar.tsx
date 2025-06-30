@@ -17,15 +17,16 @@ import {
 } from "@/components/ui/sidebar";
 import { adminNavLinks } from "@/lib/constants/navlinks.constants";
 import Logo from "@/components/global/logo";
-import { 
-  BarChart3, 
-  Users, 
-  TagIcon, 
-  Package2, 
-  Settings, 
-  LifeBuoy, 
+import {
+  BarChart3,
+  Users,
+  TagIcon,
+  Package2,
+  Settings,
+  LifeBuoy,
   LogOut,
-  ExternalLink 
+  ExternalLink,
+  TrendingUp
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,7 +38,12 @@ const getNavIcon = (title: string) => {
     case "dashboard":
       return BarChart3;
     case "users":
+    case "users enhanced":
       return Users;
+    case "orders enhanced":
+      return Package2; // Using Package2 for orders, you can import ShoppingBag if needed
+    case "analytics":
+      return TrendingUp;
     case "service":
       return Package2;
     case "category":
@@ -55,10 +61,13 @@ export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="px-4 py-3 flex justify-between items-center">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-card/50">
+      <SidebarHeader className="px-4 py-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between w-full">
           <Logo />
+          <div className="text-xs text-muted-foreground font-medium">
+            ADMIN
+          </div>
         </div>
       </SidebarHeader>
       
@@ -79,23 +88,28 @@ export default function AdminSidebar() {
         </SidebarMenu>
 
         {/* Admin Main Menu */}
-        <SidebarGroup className="mt-2">
-          <SidebarGroupLabel className="px-2 py-1.5 text-xs text-muted-foreground font-medium">
-            MANAGEMENT
+        <SidebarGroup className="mt-4">
+          <SidebarGroupLabel className="px-3 py-2 text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+            Management
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
+          <SidebarGroupContent className="mt-2">
+            <SidebarMenu className="space-y-1">
               {adminNavLinks.map((item) => {
                 const Icon = getNavIcon(item.title);
+                const isActive = pathname === item.slug || pathname.startsWith(`${item.slug}/`);
                 return (
                   <SidebarMenuItem key={item.slug}>
-                    <SidebarMenuButton asChild isActive={pathname === item.slug || pathname.startsWith(`${item.slug}/`)}>
+                    <SidebarMenuButton asChild isActive={isActive}>
                       <Link
                         href={item.slug}
-                        className="flex items-center gap-3 px-3 py-2 rounded-md"
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? 'bg-primary/10 text-primary border-l-2 border-primary'
+                            : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                        }`}
                       >
                         <Icon className="h-5 w-5" />
-                        <span>{item.title}</span>
+                        <span className="font-medium">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import addProviderRoute from "./v1/admin/provider.route";
 import serviceRoute from "./v1/admin/services.route";
 import categoriesRoute from "./v1/admin/categories.route";
+import dashboardMetricsRoute from "./v1/admin/dashboard-metrics.route";
 import publicServiceRoute from "./v1/public/service.route";
 import orderRoute from "./v1/dashboard/order.route";
 import fundRoute from "./v1/dashboard/fund.route";
@@ -13,6 +14,7 @@ const routes = new Hono();
 routes.route("/admin/providers", addProviderRoute);
 routes.route("/admin/services", serviceRoute);
 routes.route("/admin/categories", categoriesRoute);
+routes.route("/admin/dashboard-metrics", dashboardMetricsRoute);
 
 // Dashboard Route
 routes.route("/dashboard/orders", orderRoute);
