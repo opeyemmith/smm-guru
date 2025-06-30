@@ -2,10 +2,10 @@
   "name": "@smm-guru/backend",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc -b",
     "build:whole": "pnpm run -r --filter @smm-guru/utils --filter @smm-guru/database --filter @smm-guru/backend build",
-    "start": "node dist/app.js",
+    "start": "node dist/server.js",
     "migrate": "tsx src/scripts/migrate.ts",
     "migrate:status": "tsx src/scripts/migrate.ts status",
     "migrate:verify": "tsx src/scripts/migrate.ts verify",

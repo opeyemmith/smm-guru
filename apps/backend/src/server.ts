@@ -1,46 +1,28 @@
 /**
  * SMM Guru Backend Server
- * Enterprise-grade server setup with proper architecture
+ * Simplified working server using proven components from app.ts
  */
 
-import 'dotenv/config';
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { logger } from 'hono/logger';
-import { bodyLimit } from 'hono/body-limit';
-import { cors } from 'hono/cors';
-import { helmet } from 'hono/helmet';
-
-// Configuration
-import { appConfig, validateConfig } from './config/app.config.js';
-
-// Middleware
-import { errorHandlerMiddleware } from './shared/middleware/error-handler.middleware.js';
-import { requestLoggingMiddleware } from './shared/middleware/request-logging.middleware.js';
-import { securityMiddleware } from './shared/middleware/security.middleware.js';
-import { rateLimitMiddleware } from './shared/middleware/rate-limit.middleware.js';
-
-// Infrastructure
-import { getDatabaseConnection } from './infrastructure/database/connection.js';
-import { getRedisClient } from './infrastructure/cache/redis.client.js';
-import { getLogger } from './infrastructure/monitoring/logger.js';
-import { getHealthCheckService } from './infrastructure/monitoring/health-check.js';
-import { getMetricsCollector } from './infrastructure/monitoring/metrics.js';
-
-// API Routes
-import { createApiV1Routes } from './api/v1/index.js';
-
-// Health Check
-import { createHealthRoutes } from './api/health/health.routes.js';
-
-// Types
-import type { HonoAuthContext } from './shared/types/api.types.js';
+import "dotenv/config";
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { PORT } from "./lib/env.js";
+import { logger } from "hono/logger";
+import { bodyLimit } from "hono/body-limit";
+import { addSession, errorHandler } from "@smm-guru/utils";
+import { auth } from "./lib/better-auth/auth.js";
+import routes from "./routes/routes.config.js";
+import configCors from "./lib/middleware/cors.middleware.js";
+import sessionValidator from "./lib/middleware/unauthorized-access.middleware.js";
+import securityHeaders from "./lib/middleware/security-headers.middleware.js";
+import { generalRateLimit } from "./lib/middleware/rate-limit.middleware.js";
+import { initializeEnvironment } from "./lib/env-validation.js";
 
 /**
  * Application class for better organization and testing
  */
 class SMMAGuruApp {
-  private app: Hono<{ Variables: HonoAuthContext }>;
+  private app: Hono;
   private isInitialized = false;
 
   constructor() {
@@ -48,7 +30,7 @@ class SMMAGuruApp {
   }
 
   /**
-   * Initialize the application
+   * Initialize the application (simplified working version)
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
@@ -56,19 +38,16 @@ class SMMAGuruApp {
     }
 
     try {
-      // Validate configuration
-      validateConfig();
+      // Initialize and validate environment variables (from app.ts)
+      initializeEnvironment();
 
-      // Initialize infrastructure
-      await this.initializeInfrastructure();
-
-      // Setup middleware
+      // Setup middleware (using working components from app.ts)
       this.setupMiddleware();
 
-      // Setup routes
+      // Setup routes (using working components from app.ts)
       this.setupRoutes();
 
-      // Setup error handling
+      // Setup error handling (using working components from app.ts)
       this.setupErrorHandling();
 
       this.isInitialized = true;
@@ -79,131 +58,112 @@ class SMMAGuruApp {
     }
   }
 
-  /**
-   * Initialize infrastructure services
-   */
-  private async initializeInfrastructure(): Promise<void> {
-    const logger = getLogger();
-    logger.info('🔧 Initializing infrastructure...');
 
-    try {
-      // Initialize database connection
-      const dbConnection = getDatabaseConnection();
-      await dbConnection.initialize();
-      logger.info('✅ Database connection initialized');
-
-      // Initialize Redis client
-      const redisClient = getRedisClient();
-      await redisClient.initialize();
-      logger.info('✅ Redis client initialized');
-
-      // Initialize health check service
-      const healthCheck = getHealthCheckService();
-      logger.info('✅ Health check service initialized');
-
-      // Initialize metrics collection
-      const metrics = getMetricsCollector();
-      metrics.startSystemMetricsCollection();
-      logger.info('✅ Metrics collection started');
-
-      logger.info('✅ Infrastructure initialized successfully');
-    } catch (error) {
-      const logger = getLogger();
-      logger.error('❌ Infrastructure initialization failed', { error });
-      throw error;
-    }
-  }
 
   /**
-   * Setup middleware stack
+   * Setup middleware stack (hybrid approach using working app.ts middleware)
    */
   private setupMiddleware(): void {
     console.log('🔧 Setting up middleware...');
 
-    // Request logging (first for complete request tracking)
-    if (appConfig.logging.enableRequestLogging) {
-      this.app.use('*', requestLoggingMiddleware());
-    }
-
+    // ENTERPRISE SECURITY MIDDLEWARE STACK (order is critical for security!)
     // Built-in logger for development
-    if (appConfig.app.isDevelopment) {
-      this.app.use('*', logger());
-    }
+    this.app.use(logger());
 
-    // Security headers
-    if (appConfig.security.enableHelmet) {
-      this.app.use('*', helmet({
-        contentSecurityPolicy: appConfig.security.contentSecurityPolicy,
-        hsts: appConfig.security.enableHSTS,
-      }));
-    }
+    // Security headers first
+    this.app.use(securityHeaders);
 
     // CORS configuration
-    this.app.use('*', cors({
-      origin: appConfig.cors.origin,
-      credentials: appConfig.cors.credentials,
-      allowMethods: appConfig.cors.methods,
-      allowHeaders: appConfig.cors.allowedHeaders,
-      exposeHeaders: appConfig.cors.exposedHeaders,
-    }));
+    this.app.use(configCors);
 
-    // Body size limit (before parsing)
-    this.app.use('*', bodyLimit({
-      maxSize: appConfig.upload.maxFileSize,
-      onError: (c) => {
-        return c.json({
-          success: false,
-          name: 'PAYLOAD_TOO_LARGE',
-          message: 'Request payload exceeds maximum allowed size',
-          statusCode: 413,
-          timestamp: new Date().toISOString(),
-          result: null,
-        }, 413);
-      },
-    }));
+    // Debug middleware to log payload size (from app.ts)
+    this.app.use(async (c, next) => {
+      const contentLength = c.req.header('content-length');
+      console.log('📊 Request details:', {
+        method: c.req.method,
+        path: c.req.path,
+        contentLength: contentLength ? `${contentLength} bytes` : 'unknown',
+        contentType: c.req.header('content-type')
+      });
+      return next();
+    });
 
-    // Rate limiting
-    if (appConfig.rateLimit.enabled) {
-      this.app.use('*', rateLimitMiddleware({
-        windowMs: appConfig.rateLimit.windowMs,
-        max: appConfig.rateLimit.maxRequests,
-        standardHeaders: appConfig.rateLimit.standardHeaders,
-        legacyHeaders: appConfig.rateLimit.legacyHeaders,
-      }));
-    }
+    // 1. PAYLOAD SIZE VALIDATION FIRST (prevents DoS attacks and info disclosure)
+    this.app.use(
+      bodyLimit({
+        maxSize: 50 * 1024, // 50KB limit for testing (enterprise can be higher in production)
+        onError: (c) => {
+          console.log('🚨 bodyLimit triggered - payload too large');
+          return c.json(
+            {
+              success: false,
+              error: "Payload Too Large",
+              message: "Request payload exceeds maximum allowed size",
+              maxSize: "50KB",
+              details: {
+                action: "reduce_payload_size",
+                limit: "51200 bytes"
+              }
+            },
+            413 // HTTP 413 Payload Too Large (RFC 7231)
+          );
+        }
+      })
+    );
 
-    // Custom security middleware
-    this.app.use('*', securityMiddleware());
+    // 2. Rate limiting (after payload validation)
+    this.app.use(generalRateLimit);
+
+    // 3. Session management
+    this.app.use((c, n) => {
+      console.log('🔐 Session middleware executing for:', c.req.method, c.req.path);
+      return addSession(c, n, auth);
+    });
+
+    // 4. Authentication/authorization LAST
+    this.app.use((c, n) => {
+      console.log('🛡️ Authentication middleware executing for:', c.req.method, c.req.path);
+      return sessionValidator(c, n);
+    });
 
     console.log('✅ Middleware setup complete');
   }
 
   /**
-   * Setup API routes
+   * Setup API routes (hybrid approach including legacy routes)
    */
   private setupRoutes(): void {
     console.log('🔧 Setting up routes...');
 
-    // Health check routes (no authentication required)
-    this.app.route('/health', createHealthRoutes());
-
-    // API version endpoint
-    this.app.get('/api/version', (c) => {
+    // RFC 3986 compliant health check endpoint (from app.ts)
+    this.app.get("/health", (c) => {
       return c.json({
-        success: true,
-        name: 'API_VERSION',
-        message: 'API version information',
-        result: {
-          version: appConfig.app.version,
-          name: appConfig.app.name,
-          environment: appConfig.app.environment,
-          timestamp: new Date().toISOString(),
-        },
-      });
+        status: "pass"
+      }, 200);
     });
 
-    // API v1 routes
-    this.app.route('/api/v1', createApiV1Routes());
+    // Kubernetes-style readiness probe (from app.ts)
+    this.app.get("/ready", (c) => {
+      return c.json({
+        status: "ready"
+      }, 200);
+    });
+
+    // API version endpoint (from app.ts)
+    this.app.get("/api/version", (c) => {
+      return c.json({
+        version: "1.0.0",
+        api: "SMM Guru Backend"
+      }, 200);
+    });
+
+    // Auth Routes - Better Auth handler (from app.ts)
+    this.app.all("/api/auth/*", async (c) => {
+      return auth.handler(c.req.raw);
+    });
+
+    // Legacy /v2 routes (to be migrated to /api/v1)
+    this.app.route("/v2", routes);
 
     // 404 handler for undefined routes
     this.app.notFound((c) => {
@@ -221,17 +181,13 @@ class SMMAGuruApp {
   }
 
   /**
-   * Setup error handling
+   * Setup error handling (using working components from app.ts)
    */
   private setupErrorHandling(): void {
     console.log('🔧 Setting up error handling...');
 
-    // Global error handler (must be last)
-    this.app.onError(errorHandlerMiddleware({
-      enableStackTrace: appConfig.app.isDevelopment,
-      enableDetailedErrors: appConfig.app.isDevelopment,
-      logErrors: true,
-    }));
+    // Global error handler (from app.ts)
+    this.app.onError(errorHandler);
 
     // Graceful shutdown handlers
     this.setupGracefulShutdown();
@@ -284,7 +240,7 @@ class SMMAGuruApp {
   /**
    * Start the server
    */
-  async start(): Promise<void> {
+  async start(): Promise<any> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -292,37 +248,10 @@ class SMMAGuruApp {
     const server = serve(
       {
         fetch: this.app.fetch,
-        port: appConfig.app.port,
+        port: PORT,
       },
       (info) => {
-        console.log(`
-🚀 SMM Guru API Server Started Successfully!
-
-📊 Server Information:
-   • Environment: ${appConfig.app.environment}
-   • Version: ${appConfig.app.version}
-   • Port: ${info.port}
-   • URL: http://localhost:${info.port}
-
-🔗 API Endpoints:
-   • Health Check: http://localhost:${info.port}/health
-   • API Version: http://localhost:${info.port}/api/version
-   • API v1: http://localhost:${info.port}/api/v1
-
-🛡️ Security Features:
-   • Rate Limiting: ${appConfig.rateLimit.enabled ? '✅ Enabled' : '❌ Disabled'}
-   • CORS: ✅ Configured
-   • Helmet: ${appConfig.security.enableHelmet ? '✅ Enabled' : '❌ Disabled'}
-   • Request Logging: ${appConfig.logging.enableRequestLogging ? '✅ Enabled' : '❌ Disabled'}
-
-📈 Infrastructure:
-   • Database: ✅ Connected
-   • Redis: ✅ Connected
-   • Queue: ✅ Initialized
-   • Monitoring: ✅ Active
-
-Ready to handle requests! 🎉
-        `);
+        console.log(`Server is running on http://localhost:${info.port}`);
       }
     );
 
