@@ -162,8 +162,8 @@ class SMMAGuruApp {
       return auth.handler(c.req.raw);
     });
 
-    // Legacy /v2 routes (to be migrated to /api/v1)
-    this.app.route("/v2", routes);
+    // API v1 routes (migrated from /v2)
+    this.app.route("/api/v1", routes);
 
     // 404 handler for undefined routes
     this.app.notFound((c) => {

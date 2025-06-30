@@ -147,9 +147,9 @@
               "raw": "{\n  \"test\": \"data\"\n}"
             },
             "url": {
-              "raw": "{{backend_url}}/v2/handler",
+              "raw": "{{backend_url}}/api/v1/handler",
               "host": ["{{backend_url}}"],
-              "path": ["v2", "handler"]
+              "path": ["api", "v1", "handler"]
             }
           },
           "event": [
@@ -186,9 +186,9 @@
               "raw": "{\n  \"key\": \"invalid-api-key\",\n  \"test\": \"data\"\n}"
             },
             "url": {
-              "raw": "{{backend_url}}/v2/handler",
+              "raw": "{{backend_url}}/api/v1/handler",
               "host": ["{{backend_url}}"],
-              "path": ["v2", "handler"]
+              "path": ["api", "v1", "handler"]
             }
           },
           "event": [
@@ -279,9 +279,9 @@
               "raw": "{{large_payload_json}}"
             },
             "url": {
-              "raw": "{{backend_url}}/v2/handler",
+              "raw": "{{backend_url}}/api/v1/handler",
               "host": ["{{backend_url}}"],
-              "path": ["v2", "handler"]
+              "path": ["api", "v1", "handler"]
             },
             "description": "Tests enterprise-standard payload size validation using Hono's bodyLimit middleware. Validates that payload validation occurs before authentication, preventing DoS attacks and information disclosure."
           },
