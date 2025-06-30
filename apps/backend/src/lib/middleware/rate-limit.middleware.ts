@@ -45,7 +45,8 @@ class MemoryRateLimitStore {
   // Cleanup expired entries periodically
   cleanup(): void {
     const now = Date.now();
-    for (const [key, data] of this.store.entries()) {
+    const entries = Array.from(this.store.entries());
+    for (const [key, data] of entries) {
       if (now > data.resetTime) {
         this.store.delete(key);
       }

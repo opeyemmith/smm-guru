@@ -17,9 +17,25 @@ import sessionValidator from "./lib/middleware/unauthorized-access.middleware.js
 import securityHeaders from "./lib/middleware/security-headers.middleware.js";
 import { generalRateLimit } from "./lib/middleware/rate-limit.middleware.js";
 import { initializeEnvironment } from "./lib/env-validation.js";
+// import { getQueueManager } from "./infrastructure/queue/queue.manager.js";
 
 // Initialize and validate environment variables
 initializeEnvironment();
+
+// TODO: Initialize queue manager (temporarily disabled for testing)
+// const queueManager = getQueueManager({
+//   enableOrderProcessing: true,
+//   enableEmailNotifications: false, // Will be implemented later
+//   enableAnalytics: false,          // Will be implemented later
+//   enableCleanup: false,            // Will be implemented later
+//   enableProviderSync: false,       // Will be implemented later
+// });
+
+// Initialize queues (async)
+// queueManager.initialize().catch((error) => {
+//   console.error('❌ Failed to initialize queue manager:', error);
+//   // Don't exit the process, just log the error for now
+// });
 
 const app = new Hono();
 
@@ -87,6 +103,38 @@ app.get("/api/version", (c) => {
   }, 200);
 });
 
+// TODO: Queue health endpoint (temporarily disabled)
+// app.get("/api/queue/health", async (c) => {
+//   try {
+//     const healthStatus = await queueManager.getHealthStatus();
+//     return c.json(healthStatus, healthStatus.status === 'healthy' ? 200 : 503);
+//   } catch (error) {
+//     return c.json({
+//       status: 'unhealthy',
+//       error: error instanceof Error ? error.message : 'Unknown error',
+//       timestamp: new Date().toISOString(),
+//     }, 503);
+//   }
+// });
+
+// TODO: Queue statistics endpoint (temporarily disabled)
+// app.get("/api/queue/stats", async (c) => {
+//   try {
+//     const stats = await queueManager.getAllQueueStats();
+//     return c.json({
+//       success: true,
+//       data: stats,
+//       timestamp: new Date().toISOString(),
+//     }, 200);
+//   } catch (error) {
+//     return c.json({
+//       success: false,
+//       error: error instanceof Error ? error.message : 'Unknown error',
+//       timestamp: new Date().toISOString(),
+//     }, 500);
+//   }
+// });
+
 // Auth Routes - Better Auth handler
 app.all("/api/auth/*", async (c) => {
   return auth.handler(c.req.raw);
@@ -110,6 +158,29 @@ app.notFound((c) => {
 // Error handling
 app.onError(errorHandler);
 
+// Graceful shutdown handler
+const gracefulShutdown = async (signal: string) => {
+  console.log(`\n🛑 Received ${signal}, starting graceful shutdown...`);
+
+  try {
+    // TODO: Shutdown queue manager (temporarily disabled)
+    // if (queueManager.isReady()) {
+    //   console.log('🛑 Shutting down queue manager...');
+    //   await queueManager.shutdown();
+    // }
+
+    console.log('✅ Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+};
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Start the server
 serve(
   {
@@ -118,6 +189,7 @@ serve(
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`);
+    console.log(`Queue system: ⏳ Will be implemented next`);
   }
 );
 
